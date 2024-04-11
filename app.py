@@ -17,12 +17,15 @@ def process_tag_block(tag_block):
             tag_details['Paused'] = line.replace('Paused:', '').strip()
         elif line.startswith('Tag:'):
             tag_index = lines.index(line)
-            tag_content = '\n'.join(lines[tag_index+1:])
+            # Exclude any lines starting with "Conditional:" after the "Tag:" line
+            tag_content_lines = [ln for ln in lines[tag_index+1:] if not ln.startswith('Conditional:')]
+            tag_content = '\n'.join(tag_content_lines)
             tag_details['Tag'] = tag_content.strip()
-            break
+            break  # Stop after capturing the tag, ensuring no "Conditional:" lines are included
     page_conditional_lines = [line.replace('Page Conditionals:', '').strip() for line in lines if line.startswith('Page Conditionals:')]
     tag_details['Page Conditionals'] = ', '.join(page_conditional_lines) if page_conditional_lines else ''
     return tag_details
+
 
 def process_slides_info(root, namespaces):
     slides_data = []
