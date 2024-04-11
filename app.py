@@ -26,11 +26,48 @@ def process_tag_block(tag_block):
     tag_details['Page Conditionals'] = ', '.join(page_conditional_lines) if page_conditional_lines else ''
     return tag_details
 
-# Function to process XML and extract specific data
-def process_xml(file, process_function):
-    tree = ET.parse(file)
-    root = tree.getroot()
-    return process_function(root)
+# Function to process XML for slides info
+def process_slides_info(root):
+    slides = []
+    for item in root.findall('.//item'):
+        slide = {
+            'Title': item.find('title').text if item.find('title') is not None else '',
+            'Link': item.find('link').text if item.find('link') is not None else ''
+        }
+        slides.append(slide)
+    return pd.DataFrame(slides)
+
+# Function to process XML for coupons info
+def process_coupons_info(root):
+    coupons = []
+    for item in root.findall('.//item'):
+        coupon = {
+            'Title': item.find('title').text if item.find('title') is not None else '',
+            'Link': item.find('link').text if item.find('link') is not None else ''
+        }
+        coupons.append(coupon)
+    return pd.DataFrame(coupons)
+
+# Function to process XML for staff info
+def process_staff_info(root):
+    staff = []
+    for item in root.findall('.//item'):
+        member = {
+            'Name': item.find('title').text if item.find('title') is not None else ''
+        }
+        staff.append(member)
+    return pd.DataFrame(staff)
+
+# Function to process XML for redirect rules
+def process_redirect_rules(root):
+    rules = []
+    for item in root.findall('.//item'):
+        rule = {
+            'Title': item.find('title').text if item.find('title') is not None else '',
+            'Original URL': item.find('link').text if item.find('link') is not None else ''
+        }
+        rules.append(rule)
+    return pd.DataFrame(rules)
 
 # Streamlit UI setup
 st.title("File Processor App")
@@ -49,15 +86,16 @@ if uploaded_file is not None and st.button("Process"):
         df = pd.DataFrame(tags)
         st.dataframe(df)
     else:
+        tree = ET.parse(uploaded_file)
+        root = tree.getroot()
+
         if action == "Process Slides Info":
-            # Placeholder for the processing function
-            st.write("Slides Info processing not implemented")
+            df = process_slides_info(root)
         elif action == "Process Coupons Info":
-            # Placeholder for the processing function
-            st.write("Coupons Info processing not implemented")
+            df = process_coupons_info(root)
         elif action == "Process Staff Info":
-            # Placeholder for the processing function
-            st.write("Staff Info processing not implemented")
+            df = process_staff_info(root)
         elif action == "Process Redirect Rules":
-            # Placeholder for the processing function
-            st.write("Redirect Rules processing not implemented")
+            df = process_redirect_rules(root)
+
+        st.dataframe(df)
