@@ -1,10 +1,8 @@
 import streamlit as st
-import csv
 import xml.etree.ElementTree as ET
 from io import StringIO
 import pandas as pd
 
-# Function to process tag block from text input
 def process_tag_block(tag_block):
     tag_details = {}
     lines = tag_block.split('\n')
@@ -26,21 +24,33 @@ def process_tag_block(tag_block):
     tag_details['Page Conditionals'] = ', '.join(page_conditional_lines) if page_conditional_lines else ''
     return tag_details
 
-# Function to process XML for slides info
-def process_slides_info(root):
-    slides = []
-    for item in root.findall('.//item'):
-        slide = {
-            'Title': item.find('title').text if item.find('title') is not None else '',
-            'Link': item.find('link').text if item.find('link') is not None else ''
-        }
-        slides.append(slide)
-    return pd.DataFrame(slides)
+def process_slides_info(root, namespaces):
+    slides_data = []
+    for item in root.findall('.//item', namespaces):
+        title = item.find('title').text if item.find('title') is not None else ''
+        link = item.find('link').text if item.find('link') is not None else ''
+        status = item.find('wp:status', namespaces).text if item.find('wp:status', namespaces) is not None else ''
 
-# Function to process XML for coupons info
+        desktop_image_src = mobile_image_src = expiration_date = None
+        for postmeta in item.findall('wp:postmeta', namespaces):
+            meta_key = postmeta.find('wp:meta_key', namespaces).text
+            meta_value = postmeta.find('wp:meta_value', namespaces).text
+            if meta_key == 'desktopImageSrc':
+                desktop_image_src = meta_value
+            elif meta_key == 'mobileImageSrc':
+                mobile_image_src = meta_value
+            elif meta_key == 'expiration_date':
+                expiration_date = meta_value
+
+        slides_data.append({
+            'Title': title, 'Link': link, 'Desktop Image Src': desktop_image_src,
+            'Mobile Image Src': mobile_image_src, 'Status': status, 'Expiration Date': expiration_date
+        })
+    return pd.DataFrame(slides_data)
+
 def process_coupons_info(root, namespaces):
     coupons_data = []
-    for item in root.findall('.//item'):
+    for item in root.findall('.//item', namespaces):
         title = item.find('title').text if item.find('title') is not None else ''
         link = item.find('link').text if item.find('link') is not None else ''
         description = item.find('content:encoded', namespaces).text if item.find('content:encoded', namespaces) is not None else ''
@@ -60,14 +70,11 @@ def process_coupons_info(root, namespaces):
             'Title': title, 'Link': link, 'Description': description, 'Expiration Date': expiration_date,
             'Image URL': image_url, 'Status': status, 'Post Date': post_date
         })
-
     return pd.DataFrame(coupons_data)
 
-
-# Function to process XML for staff info
 def process_staff_info(root, namespaces):
     staff_data = []
-    for item in root.findall('.//item'):
+    for item in root.findall('.//item', namespaces):
         name = title = phone = email = department = ''
         title_text = item.find('title').text if item.find('title') is not None else ''
         name = title_text.split(',')[0] if ',' in title_text else title_text
@@ -85,14 +92,11 @@ def process_staff_info(root, namespaces):
                 department = meta_value
 
         staff_data.append({'Name': name, 'Title': title, 'Phone': phone, 'Email': email, 'Department': department})
-
     return pd.DataFrame(staff_data)
 
-
-# Function to process XML for redirect rules
 def process_redirect_rules(root, namespaces):
     rules_data = []
-    for item in root.findall('.//item'):
+    for item in root.findall('.//item', namespaces):
         title = item.find('title').text if item.find('title') is not None else ''
 
         original_url = redirected_url = None
@@ -106,17 +110,12 @@ def process_redirect_rules(root, namespaces):
 
         if original_url and redirected_url:
             rules_data.append({'Title': title, 'Original URL': original_url, 'Redirected URL': redirected_url})
-
     return pd.DataFrame(rules_data)
 
+st.title("DI Migration File Processor App")
 
-# Streamlit UI setup
-st.title("File Processor App")
-
-# User selects the action
 action = st.selectbox("Select the action you want to perform:", ["Process Tag Block", "Process Slides Info", "Process Coupons Info", "Process Staff Info", "Process Redirect Rules"])
 
-# User uploads a file
 uploaded_file = st.file_uploader("Choose a file", type=["txt", "xml"])
 
 if uploaded_file is not None and st.button("Process"):
@@ -129,14 +128,15 @@ if uploaded_file is not None and st.button("Process"):
     else:
         tree = ET.parse(uploaded_file)
         root = tree.getroot()
+        namespaces = {'wp': 'http://wordpress.org/export/1.2/', 'content': 'http://purl.org/rss/1.0/modules/content/'}
 
         if action == "Process Slides Info":
-            df = process_slides_info(root)
+            df = process_slides_info(root, namespaces)
         elif action == "Process Coupons Info":
-            df = process_coupons_info(root)
+            df = process_coupons_info(root, namespaces)
         elif action == "Process Staff Info":
-            df = process_staff_info(root)
+            df = process_staff_info(root, namespaces)
         elif action == "Process Redirect Rules":
-            df = process_redirect_rules(root)
+            df = process_redirect_rules(root, namespaces)
 
         st.dataframe(df)
