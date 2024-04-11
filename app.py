@@ -38,36 +38,77 @@ def process_slides_info(root):
     return pd.DataFrame(slides)
 
 # Function to process XML for coupons info
-def process_coupons_info(root):
-    coupons = []
+def process_coupons_info(root, namespaces):
+    coupons_data = []
     for item in root.findall('.//item'):
-        coupon = {
-            'Title': item.find('title').text if item.find('title') is not None else '',
-            'Link': item.find('link').text if item.find('link') is not None else ''
-        }
-        coupons.append(coupon)
-    return pd.DataFrame(coupons)
+        title = item.find('title').text if item.find('title') is not None else ''
+        link = item.find('link').text if item.find('link') is not None else ''
+        description = item.find('content:encoded', namespaces).text if item.find('content:encoded', namespaces) is not None else ''
+        status = item.find('wp:status', namespaces).text if item.find('wp:status', namespaces) is not None else ''
+        post_date = item.find('wp:post_date', namespaces).text if item.find('wp:post_date', namespaces) is not None else ''
+
+        expiration_date = image_url = None
+        for postmeta in item.findall('wp:postmeta', namespaces):
+            meta_key = postmeta.find('wp:meta_key', namespaces).text
+            meta_value = postmeta.find('wp:meta_value', namespaces).text
+            if meta_key == 'expiration_date':
+                expiration_date = meta_value
+            elif meta_key == 'post_banner_url':
+                image_url = meta_value
+
+        coupons_data.append({
+            'Title': title, 'Link': link, 'Description': description, 'Expiration Date': expiration_date,
+            'Image URL': image_url, 'Status': status, 'Post Date': post_date
+        })
+
+    return pd.DataFrame(coupons_data)
+
 
 # Function to process XML for staff info
-def process_staff_info(root):
-    staff = []
+def process_staff_info(root, namespaces):
+    staff_data = []
     for item in root.findall('.//item'):
-        member = {
-            'Name': item.find('title').text if item.find('title') is not None else ''
-        }
-        staff.append(member)
-    return pd.DataFrame(staff)
+        name = title = phone = email = department = ''
+        title_text = item.find('title').text if item.find('title') is not None else ''
+        name = title_text.split(',')[0] if ',' in title_text else title_text
+
+        for postmeta in item.findall('wp:postmeta', namespaces):
+            meta_key = postmeta.find('wp:meta_key', namespaces).text
+            meta_value = postmeta.find('wp:meta_value', namespaces).text
+            if meta_key == 'title':
+                title = meta_value
+            elif meta_key == 'phone':
+                phone = meta_value
+            elif meta_key == 'email':
+                email = meta_value
+            elif meta_key == 'department':
+                department = meta_value
+
+        staff_data.append({'Name': name, 'Title': title, 'Phone': phone, 'Email': email, 'Department': department})
+
+    return pd.DataFrame(staff_data)
+
 
 # Function to process XML for redirect rules
-def process_redirect_rules(root):
-    rules = []
+def process_redirect_rules(root, namespaces):
+    rules_data = []
     for item in root.findall('.//item'):
-        rule = {
-            'Title': item.find('title').text if item.find('title') is not None else '',
-            'Original URL': item.find('link').text if item.find('link') is not None else ''
-        }
-        rules.append(rule)
-    return pd.DataFrame(rules)
+        title = item.find('title').text if item.find('title') is not None else ''
+
+        original_url = redirected_url = None
+        for postmeta in item.findall('wp:postmeta', namespaces):
+            meta_key = postmeta.find('wp:meta_key', namespaces).text
+            meta_value = postmeta.find('wp:meta_value', namespaces).text
+            if meta_key == '_redirect_rule_from':
+                original_url = meta_value
+            elif meta_key == '_redirect_rule_to':
+                redirected_url = meta_value
+
+        if original_url and redirected_url:
+            rules_data.append({'Title': title, 'Original URL': original_url, 'Redirected URL': redirected_url})
+
+    return pd.DataFrame(rules_data)
+
 
 # Streamlit UI setup
 st.title("File Processor App")
